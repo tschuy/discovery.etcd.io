@@ -54,10 +54,12 @@ func init() {
 	pflag.StringP("etcd", "e", "http://127.0.0.1:2379", "etcd endpoint location")
 	pflag.StringP("host", "h", "https://discovery.etcd.io", "discovery url prefix")
 	pflag.StringP("addr", "a", ":8087", "web service address")
+	pflag.StringP("metrics", "m", ":8088", "metrics service address")
 
 	viper.BindPFlag("etcd", pflag.Lookup("etcd"))
 	viper.BindPFlag("host", pflag.Lookup("host"))
 	viper.BindPFlag("addr", pflag.Lookup("addr"))
+	viper.BindPFlag("metrics", pflag.Lookup("metrics"))
 
 	pflag.Parse()
 }
@@ -67,9 +69,16 @@ func main() {
 	etcdHost := mustHostOnlyURL(viper.GetString("etcd"))
 	discHost := mustHostOnlyURL(viper.GetString("host"))
 
-	handling.Setup(etcdHost, discHost)
+	handler, prometheusHandler := handling.Setup(etcdHost, discHost)
 
-	err := http.ListenAndServe(viper.GetString("addr"), nil)
+	go func() {
+		err := http.ListenAndServe(viper.GetString("metrics"), prometheusHandler)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	err := http.ListenAndServe(viper.GetString("addr"), handler)
 	if err != nil {
 		panic(err)
 	}

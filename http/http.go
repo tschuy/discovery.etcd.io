@@ -5,14 +5,14 @@ import (
 	"os"
 
 	gorillaHandlers "github.com/gorilla/handlers"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/coreos/discovery.etcd.io/handlers"
-	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gorilla/mux"
 )
 
-func Setup(etcdHost, discHost string) {
+func Setup(etcdHost, discHost string) (http.Handler, http.Handler) {
 	handlers.Setup(etcdHost, discHost)
 	r := mux.NewRouter()
 
@@ -31,8 +31,7 @@ func Setup(etcdHost, discHost string) {
 	r.HandleFunc("/{token:[a-f0-9]{32}}/_config/size", handlers.TokenHandler).
 		Methods("GET")
 
-	logH := gorillaHandlers.LoggingHandler(os.Stdout, r)
-
-	http.Handle("/", logH)
-	http.Handle("/metrics", prometheus.Handler())
+	loggedHandler := gorillaHandlers.LoggingHandler(os.Stdout, r)
+	prometheusHandler := prometheus.Handler()
+	return loggedHandler, prometheusHandler
 }
